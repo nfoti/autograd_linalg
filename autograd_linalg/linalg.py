@@ -1,11 +1,13 @@
+from __future__ import absolute_import
+
 import numpy as np
 import autograd.numpy as anp
 from autograd.core import primitive
 from autograd.scipy.linalg import _flip
 from functools import partial
 
-import cython_linalg as cyla
-from util import T, symm, C
+from . import cython_linalg as cyla
+from .util import T, symm, C
 
 ### solve_triangular
 
