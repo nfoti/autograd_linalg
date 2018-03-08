@@ -2,7 +2,8 @@ from __future__ import absolute_import
 
 import numpy as np
 import autograd.numpy as anp
-from autograd.core import primitive
+#from autograd.core import primitive
+from autograd.extend import primitive, defvjp
 from autograd.scipy.linalg import _flip
 from functools import partial
 
@@ -30,10 +31,11 @@ def make_grad_solve_triangular(ans, a, b, trans=0, lower=False, **kwargs):
         return -transpose(tri(anp.matmul(anp.reshape(v, ans.shape), T(ans))))
 
     return solve_triangular_grad
-solve_triangular.defgrad(make_grad_solve_triangular)
-solve_triangular.defgrad(lambda ans, a, b, trans=0, lower=False, **kwargs:
-                         lambda g: solve_triangular(a, g, trans=_flip(a, trans), lower=lower),
-                         argnum=1)
+defvjp(solve_triangular,
+       make_grad_solve_triangular,
+       lambda ans, a, b, trans=0, lower=False, **kwargs:
+         lambda g: solve_triangular(a, g, trans=_flip(a, trans), lower=lower),
+       None)
 
 ### cholesky
 
@@ -42,7 +44,7 @@ solve_conj = lambda L, X: solve_trans(L, T(solve_trans(L, T(X))))
 phi = lambda X: anp.tril(X) / (1. + anp.eye(X.shape[-1]))
 
 cholesky = primitive(np.linalg.cholesky)
-cholesky.defgrad(lambda L, A: lambda g: symm(solve_conj(L, phi(anp.matmul(T(L), g)))))
+defvjp(cholesky, lambda L, A: lambda g: symm(solve_conj(L, phi(anp.matmul(T(L), g)))))
 
 
 ### operations on cholesky factors
@@ -57,8 +59,8 @@ def inv_posdef_from_cholesky(L, lower=True):
 
 square_grad = lambda X: lambda g: anp.matmul(g, X) + anp.matmul(T(g), X)
 sym_inv_grad = lambda Xinv: lambda g: -anp.matmul(Xinv, anp.matmul(g, Xinv))
-inv_posdef_from_cholesky.defgrad(
-    lambda LLT_inv, L: lambda g: anp.tril(square_grad(L)(sym_inv_grad(LLT_inv)(g))))
+defvjp(inv_posdef_from_cholesky,
+       lambda LLT_inv, L: lambda g: anp.tril(square_grad(L)(sym_inv_grad(LLT_inv)(g))))
 
 
 @primitive
@@ -72,4 +74,4 @@ def make_grad_solve_posdef_from_cholesky(ans, L, X, lower=True):
     def gradfun(g):
         raise NotImplementedError  # TODO
     return gradfun
-solve_posdef_from_cholesky.defgrad(make_grad_solve_posdef_from_cholesky)
+defvjp(solve_posdef_from_cholesky, make_grad_solve_posdef_from_cholesky)
